@@ -16,6 +16,9 @@ impl Arena {
         Ok(layout) => {
           let start = std::alloc::alloc(layout);
 
+          // TODO: We should check if `alloc` was actually successful
+          // We might not have enough memory and it might return a null pointer
+
           let current_ptr_pos = start.clone();
           let end = start.add(num_chunks);
 
