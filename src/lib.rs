@@ -10,19 +10,23 @@ pub struct Arena {
 }
 
 impl Arena {
-  pub fn new(num_chunks: usize) -> Self {
+  pub fn try_new(num_chunks: usize) -> Result<Self, std::alloc::LayoutError> {
     unsafe {
-      let layout = std::alloc::Layout::array::<ChunkSize>(num_chunks).unwrap();
-      let start = std::alloc::alloc(layout);
+      match std::alloc::Layout::array::<ChunkSize>(num_chunks) {
+        Ok(layout) => {
+          let start = std::alloc::alloc(layout);
 
-      let current_ptr_pos = start.clone();
-      let end = start.add(num_chunks);
+          let current_ptr_pos = start.clone();
+          let end = start.add(num_chunks);
 
-      Self {
-        start,
-        end,
-        current_ptr_pos,
-        layout,
+          Ok(Self {
+            start,
+            end,
+            current_ptr_pos,
+            layout,
+          })
+        }
+        Err(e) => Err(e),
       }
     }
   }
@@ -59,7 +63,7 @@ mod tests {
 
   #[test]
   fn no_ops_on_zero_chunk_size() {
-    let arena = Arena::new(0);
+    let arena = Arena::try_new(0).unwrap();
 
     assert_eq!(arena.start, arena.end);
     assert_eq!(arena.start, arena.current_ptr_pos);
@@ -68,18 +72,22 @@ mod tests {
 
   quickcheck! {
     fn prop_correctly_offsets_arena_end(num_chunks: usize) -> bool {
-      let arena = Arena::new(num_chunks);
-      unsafe {
-        let expected_end = arena.start.add(num_chunks);
+      if num_chunks > std::isize::MAX as usize {
+        Arena::try_new(num_chunks).is_err()
+      } else {
+        let arena = Arena::try_new(num_chunks).unwrap();
+        unsafe {
+          let expected_end = arena.start.add(num_chunks);
 
-        arena.end == expected_end
+          arena.end == expected_end
+        }
       }
     }
   }
 
   #[test]
   fn allocation_returns_correct_pointer_at_start() {
-    let mut arena = Arena::new(1);
+    let mut arena = Arena::try_new(1).unwrap();
 
     let ptr = arena.allocate(12);
 
@@ -88,7 +96,7 @@ mod tests {
 
   #[test]
   fn can_allocate_multiple_chunks() {
-    let mut arena = Arena::new(3);
+    let mut arena = Arena::try_new(3).unwrap();
 
     let ptr1 = arena.allocate(1).unwrap();
     let ptr2 = arena.allocate(2).unwrap();
@@ -123,7 +131,7 @@ mod tests {
 
   #[test]
   fn cannot_allocate_more_than_block_size() {
-    let mut arena = Arena::new(3);
+    let mut arena = Arena::try_new(3).unwrap();
 
     let _ = arena.allocate(1);
     let _ = arena.allocate(2);
