@@ -9,7 +9,7 @@ An arena is an API which pre-allocates a block of memory and allows the user to 
 This arena is configurable on number of chunks and has the following API:
 
 ```rust
-fn Arena::new(num_chunks: usize) -> Arena;
+fn Arena::new(num_chunks: usize) -> Result<Arena, std::alloc::LayoutError>;
 fn Arena::allocate(self, item: u8) -> *mut u8;
 impl Drop for Arena;
 ```
